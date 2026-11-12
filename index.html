@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#e0f2fe" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="PDMS Passara" />
+  <title>PDMS — Passara Disaster Management System</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Leaflet GIS Map (100% Free OpenStreetMap — No API Key Required) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Sinhala:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(145deg, #ffffff 0%, #f0f9ff 40%, #e0f2fe 78%, #bae6fd 100%);
+      --glass-bg: rgba(255, 255, 255, 0.78);
+      --glass-border: rgba(255, 255, 255, 0.94);
+      --glass-shadow: 0 12px 36px -8px rgba(14, 165, 233, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Inter', 'Noto Sans Sinhala', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: #0f172a;
+      min-height: 100vh;
+      overflow-x: hidden;
+      margin: 0;
+      padding-bottom: 105px;
+    }
+
+    .orb {
+      position: fixed;
+      border-radius: 9999px;
+      filter: blur(75px);
+      z-index: -1;
+      pointer-events: none;
+      animation: floatOrb 15s ease-in-out infinite alternate;
+    }
+    .orb-1 {
+      width: 340px;
+      height: 340px;
+      top: -80px;
+      left: -60px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.28), rgba(255, 255, 255, 0));
+    }
+    .orb-2 {
+      width: 400px;
+      height: 400px;
+      bottom: 5%;
+      right: -90px;
+      background: radial-gradient(circle, rgba(125, 211, 252, 0.36), rgba(255, 255, 255, 0));
+      animation-delay: -5s;
+    }
+
+    @keyframes floatOrb {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(24px, 28px) scale(1.08); }
+    }
+
+    .ios-glass {
+      background: var(--glass-bg);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-shadow);
+    }
+
+    .ios-glass-strong {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(28px) saturate(200%);
+      -webkit-backdrop-filter: blur(28px) saturate(200%);
+      border: 1px solid #ffffff;
+      box-shadow: 0 16px 40px -10px rgba(2, 132, 199, 0.18), inset 0 1px 0 #ffffff;
+    }
+
+    .sky-btn {
+      background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%);
+      color: #ffffff;
+      box-shadow: 0 8px 20px -4px rgba(14, 165, 233, 0.42);
+      transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .sky-btn:hover {
+      filter: brightness(1.04);
+    }
+    .sky-btn:active {
+      transform: scale(0.97);
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Leaflet Free Map Fixes */
+    .leaflet-container {
+      font-family: 'Inter', 'Noto Sans Sinhala', sans-serif;
+      border-radius: 22px;
+      z-index: 10;
+      background: #e0f2fe;
+    }
+    .leaflet-tile-pane img {
+      max-width: none !important;
+    }
+    .leaflet-popup-content-wrapper {
+      background: rgba(255, 255, 255, 0.97);
+      backdrop-filter: blur(16px);
+      border-radius: 18px;
+      box-shadow: 0 12px 28px rgba(14, 165, 233, 0.22);
+      border: 1px solid #bae6fd;
+    }
+    .custom-rain-pin {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9999px;
+      color: #fff;
+      font-weight: 800;
+      font-size: 11px;
+      border: 2.5px solid #ffffff;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.45);
+    }
+  </style>
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+
+  <!-- Top Status Bar + Desktop Navigation -->
+  <div class="sticky top-3 z-40 px-4">
+    <div class="max-w-6xl mx-auto flex items-center justify-between gap-3">
+      <!-- Status Pill -->
+      <div id="dynamicIsland" class="ios-glass-strong rounded-full px-4 py-2 flex items-center gap-3 text-xs font-semibold text-slate-700 w-full md:w-auto justify-between">
+        <div class="flex items-center gap-2">
+          <span id="cloudDot" class="w-2.5 h-2.5 rounded-full bg-sky-400 animate-pulse"></span>
+          <span id="cloudStatusText" class="truncate">Initializing...</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="installPwaBtn" onclick="triggerInstallPWA()" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-sky-100 text-sky-700 hover:bg-sky-200 transition">
+            + Install App
+          </button>
+          <span id="clockBadge" class="text-[11px] font-bold text-sky-600 bg-sky-50 px-2.5 py-0.5 rounded-full border border-sky-100">--:--</span>
+        </div>
+      </div>
+
+      <!-- Desktop Top Nav Tabs -->
+      <div class="hidden md:flex ios-glass-strong rounded-full p-1 items-center gap-1.5">
+        <button onclick="switchMainTab('dashboard')" id="pc-nav-dashboard" class="px-5 py-2 rounded-full text-xs font-bold sky-btn">
+          Dashboard & GIS Map
+        </button>
+        <button onclick="switchMainTab('admin')" id="pc-nav-admin" class="px-5 py-2 rounded-full text-xs font-bold text-slate-600 hover:text-sky-600 transition">
+          Admin Panel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Responsive Container -->
+  <main class="max-w-6xl mx-auto px-4 pt-5 space-y-5">
+
+    <!-- Header -->
+    <header class="flex flex-wrap items-center justify-between gap-2 px-1">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-0.5 rounded-lg bg-sky-600 text-white text-xs font-extrabold tracking-wider">PDMS</span>
+          <span class="text-xs font-bold uppercase tracking-wider text-sky-700">Early Warning & Rainfall Telemetry</span>
+        </div>
+        <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 mt-1">Passara Disaster Management System</h1>
+      </div>
+      <div class="text-right">
+        <span id="todayDateLabel" class="text-xs font-bold text-slate-700 bg-white/85 px-3 py-1.5 rounded-full border border-sky-100 inline-block shadow-sm"></span>
+      </div>
+    </header>
+
+    <!-- Station Switcher Pill Bar -->
+    <div id="stationPillsContainer" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+      <!-- Rendered dynamically -->
+    </div>
+
+    <!-- VIEW 1: DASHBOARD -->
+    <section id="view-dashboard" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+        <!-- LEFT COLUMN (7 cols on PC) -->
+        <div class="lg:col-span-7 space-y-4">
+          <!-- Hero Metric Card -->
+          <div class="ios-glass rounded-[28px] p-5 md:p-6 relative overflow-hidden">
+            <div class="flex items-start justify-between">
+              <div>
+                <span id="heroSubtitle" class="text-xs font-semibold text-sky-700 bg-sky-100/80 px-3 py-1 rounded-full">All Stations</span>
+                <div class="mt-3 flex items-baseline gap-2">
+                  <span id="heroTotalValue" class="text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900">0.0</span>
+                  <span class="text-xl font-bold text-sky-600">mm</span>
+                </div>
+                <p id="heroDescription" class="text-xs text-slate-500 mt-1">Latest recorded rainfall total</p>
+              </div>
+              <div class="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-white to-sky-100 border border-white flex items-center justify-center shadow-sm">
+                <svg class="w-8 h-8 md:w-9 md:h-9 text-sky-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8 19v2m4-2v2m4-2v2" />
+                </svg>
+              </div>
+            </div>
+
+            <!-- Alert Banner -->
+            <div id="alertBanner" class="hidden mt-4 p-3 rounded-2xl bg-rose-50/95 border border-rose-200 flex items-center gap-3">
+              <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shrink-0"></span>
+              <p id="alertBannerText" class="text-xs font-bold text-rose-700"></p>
+            </div>
+
+            <!-- 3 Mini KPI Pills -->
+            <div class="grid grid-cols-3 gap-3 mt-5">
+              <div class="bg-white/80 border border-white rounded-2xl p-3.5">
+                <p class="text-[11px] font-medium text-slate-500">7-Day Total</p>
+                <p id="kpi7Day" class="text-base md:text-lg font-extrabold text-slate-800 mt-0.5">0.0 mm</p>
+              </div>
+              <div class="bg-white/80 border border-white rounded-2xl p-3.5">
+                <p class="text-[11px] font-medium text-slate-500">Peak Reading</p>
+                <p id="kpiMax" class="text-base md:text-lg font-extrabold text-sky-600 mt-0.5">0.0 mm</p>
+              </div>
+              <div class="bg-white/80 border border-white rounded-2xl p-3.5">
+                <p class="text-[11px] font-medium text-slate-500">Active Gauges</p>
+                <p id="kpiStationCount" class="text-base md:text-lg font-extrabold text-slate-800 mt-0.5">0</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stations Live Status Grid -->
+          <div id="stationCardsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- Rendered dynamically -->
+          </div>
+
+          <!-- Chart Card -->
+          <div class="ios-glass rounded-[28px] p-5">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h2 class="text-sm font-bold text-slate-800">Rainfall Analytics</h2>
+                <p id="chartSubLabel" class="text-[11px] text-slate-500">Station Comparison</p>
+              </div>
+              <span class="text-[11px] font-bold text-sky-600 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-100">mm</span>
+            </div>
+            <div class="h-60 w-full">
+              <canvas id="rainChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN (5 cols on PC): 100% Free Interactive GIS Map + Readings Feed -->
+        <div class="lg:col-span-5 space-y-4">
+          <!-- Free GIS Map Card -->
+          <div class="ios-glass rounded-[28px] p-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5 px-1">
+              <div>
+                <h2 class="text-sm font-bold text-slate-800">Passara Rain Gauge Map</h2>
+                <p class="text-[11px] text-slate-500">Free OpenStreetMap & Satellite View</p>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button onclick="toggleMapStyle()" id="mapStyleBtn" class="text-[11px] font-bold text-slate-700 bg-white hover:bg-sky-50 px-2.5 py-1 rounded-full border border-sky-100 transition">
+                  🛰️ Satellite
+                </button>
+                <button onclick="resetMapView()" class="text-[11px] font-bold text-sky-600 bg-sky-50 hover:bg-sky-100 px-2.5 py-1 rounded-full border border-sky-100 transition">
+                  Reset
+                </button>
+              </div>
+            </div>
+            <div id="stationMap" class="w-full h-72 md:h-80 rounded-[22px] border border-white shadow-inner"></div>
+          </div>
+
+          <!-- Recent Readings Feed -->
+          <div class="ios-glass rounded-[28px] p-5">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-sm font-bold text-slate-800">Recent Telemetry Logs</h2>
+              <button onclick="exportCSV()" class="text-xs font-bold text-sky-600 hover:text-sky-700 bg-sky-50 px-3 py-1 rounded-full border border-sky-100">
+                Export CSV
+              </button>
+            </div>
+            <div id="readingsList" class="space-y-2.5 max-h-96 overflow-y-auto pr-1">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOWER SECTION: EMERGENCY CONTACTS, ADMIN & SUPPORT TEAM DIRECTORY -->
+      <footer class="ios-glass rounded-[28px] p-5 md:p-6 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-sky-100 pb-3">
+          <div>
+            <h2 class="text-base font-extrabold text-slate-900">Emergency Contacts & System Support Directory</h2>
+            <p class="text-xs text-slate-500">Passara Disaster Management System (PDMS) — Quick Response & Technical Support</p>
+          </div>
+          <span class="text-[11px] font-bold text-sky-700 bg-sky-100/80 px-3 py-1 rounded-full">24/7 Emergency Helpline</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- Column 1: Emergency Services -->
+          <div class="bg-white/80 border border-white rounded-2xl p-4 space-y-2.5">
+            <h3 class="text-xs font-extrabold uppercase tracking-wider text-rose-600 flex items-center gap-1.5">
+              <span>🚨</span> Emergency & Police Contacts
+            </h3>
+            <ul class="space-y-2 text-xs text-slate-700">
+              <li class="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                <span class="font-semibold">Passara Police Station</span>
+                <a href="tel:0552288222" class="font-bold text-sky-600 hover:underline">055-2288222</a>
+              </li>
+              <li class="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                <span class="font-semibold">Police Emergency</span>
+                <a href="tel:119" class="font-bold text-rose-600 hover:underline">119</a>
+              </li>
+              <li class="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                <span class="font-semibold">Disaster Management (DMC)</span>
+                <a href="tel:117" class="font-bold text-rose-600 hover:underline">117</a>
+              </li>
+              <li class="flex justify-between items-center">
+                <span class="font-semibold">Base Hospital Passara</span>
+                <a href="tel:0552288261" class="font-bold text-sky-600 hover:underline">055-2288261</a>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Column 2: System Admin & Operations -->
+          <div class="bg-white/80 border border-white rounded-2xl p-4 space-y-2.5">
+            <h3 class="text-xs font-extrabold uppercase tracking-wider text-sky-700 flex items-center gap-1.5">
+              <span>🛡️</span> System Administration
+            </h3>
+            <div class="space-y-2 text-xs text-slate-700">
+              <div class="border-b border-slate-100 pb-1.5">
+                <p class="text-[11px] text-slate-400">System Lead & Developer</p>
+                <p class="font-bold text-slate-900">Oshan Dissanayaka</p>
+              </div>
+              <div class="border-b border-slate-100 pb-1.5">
+                <p class="text-[11px] text-slate-400">Admin Contact Number</p>
+                <a href="tel:+94761967619" class="font-bold text-sky-600 hover:underline">+94 70 000 0000</a>
+              </div>
+              <div>
+                <p class="text-[11px] text-slate-400">Official Email</p>
+                <a href="mailto:admin@oshandissanayaka.lk" class="font-bold text-sky-600 hover:underline">admin@oshandissanayaka.lk</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 3: Field Support & Contributors -->
+          <div class="bg-white/80 border border-white rounded-2xl p-4 space-y-2.5">
+            <h3 class="text-xs font-extrabold uppercase tracking-wider text-emerald-700 flex items-center gap-1.5">
+              <span>🤝</span> Field Observation & Support Team
+            </h3>
+            <ul class="space-y-2 text-xs text-slate-700">
+              <li class="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                <span class="font-semibold">Oshan Dissanayaka(LEAD & Developer , Admin Passara Page)</span>
+                <span class="text-[11px] font-medium text-slate-500">076-1967619</span>
+              </li>
+              <li class="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                <span class="font-semibold">Sanadaruwan Priyanjana  (MAIN ADMIN PASSARA PAGE)</span>
+                <span class="text-[11px] font-medium text-slate-500">076-5892889</span>
+              </li>
+              <li class="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                <span class="font-semibold">Okitha P Ranasinhe (Support Team)</span>
+                <span class="text-[11px] font-medium text-slate-500">071-6087217</span>
+              </li>
+              <li class="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                <span class="font-semibold">Navod Daksitha (Support Team)</span>
+                <span class="text-[11px] font-medium text-slate-500">075-4815216</span>
+              </li>
+
+
+              <li class="flex justify-between items-center">
+                <span class="font-semibold">Divisional Secretariat Unit</span>
+                <span class="text-[11px] font-medium text-slate-500">055-2288235</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="text-center pt-2 border-t border-sky-100/70 text-[11px] text-slate-500">
+          © 2026 <strong>PDMS — Passara Disaster Management System</strong>. All Rights Reserved.
+        </div>
+      </footer>
+    </section>
+
+    <!-- VIEW 2: ADMIN PANEL -->
+    <section id="view-admin" class="hidden max-w-2xl mx-auto space-y-4">
+      <!-- Admin Email & Password Login Card -->
+      <div id="adminLockCard" class="ios-glass rounded-[28px] p-6 md:p-8 space-y-5">
+        <div class="text-center space-y-2">
+          <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-sky-500 to-sky-300 text-white flex items-center justify-center shadow-md">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 class="text-xl font-extrabold text-slate-900">PDMS Admin Login</h2>
+          <p class="text-xs text-slate-500">Sign in to manage stations and rainfall telemetry</p>
+        </div>
+
+        <form onsubmit="unlockAdmin(event)" class="max-w-sm mx-auto space-y-3.5">
+          <div>
+            <label class="text-xs font-bold text-slate-600 block mb-1">Admin Email</label>
+            <input id="adminEmailInput" type="email" required placeholder="admin@oshandissanayaka.lk"
+              class="w-full px-4 py-3 rounded-2xl bg-white/90 border border-sky-200 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400" />
+          </div>
+          <div>
+            <label class="text-xs font-bold text-slate-600 block mb-1">Password</label>
+            <input id="adminPassInput" type="password" required placeholder="••••"
+              class="w-full px-4 py-3 rounded-2xl bg-white/90 border border-sky-200 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400" />
+          </div>
+          <button type="submit" class="w-full py-3.5 rounded-2xl font-bold text-sm sky-btn">
+            Sign In
+          </button>
+        </form>
+      </div>
+
+      <!-- Unlocked Admin Workspace -->
+      <div id="adminWorkspace" class="hidden space-y-4">
+        <!-- Admin Sub-Tabs -->
+        <div class="ios-glass p-1.5 rounded-2xl grid grid-cols-3 gap-1 text-xs font-bold">
+          <button onclick="switchAdminTab('entry')" id="adminTab-entry" class="py-2.5 rounded-xl bg-white text-sky-600 shadow-sm transition">
+            + Add Reading
+          </button>
+          <button onclick="switchAdminTab('stations')" id="adminTab-stations" class="py-2.5 rounded-xl text-slate-600 transition">
+            Stations & Map
+          </button>
+          <button onclick="switchAdminTab('settings')" id="adminTab-settings" class="py-2.5 rounded-xl text-slate-600 transition">
+            Admin Settings
+          </button>
+        </div>
+
+        <!-- TAB 1: DATA ENTRY -->
+        <div id="adminPanel-entry" class="ios-glass rounded-[28px] p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-extrabold text-slate-800">Daily Rainfall Entry</h3>
+            <div class="flex bg-sky-100/70 p-1 rounded-xl text-[11px] font-bold">
+              <button onclick="setEntryMode('single')" id="modeSingleBtn" class="px-3 py-1 rounded-lg bg-white text-sky-700 shadow-sm">Single</button>
+              <button onclick="setEntryMode('bulk')" id="modeBulkBtn" class="px-3 py-1 rounded-lg text-slate-600">Bulk All</button>
+            </div>
+          </div>
+
+          <!-- Single Entry Form -->
+          <form id="singleEntryForm" onsubmit="saveSingleReading(event)" class="space-y-3">
+            <div>
+              <label class="text-xs font-bold text-slate-600 block mb-1">Select Station</label>
+              <select id="entryStationSelect" required class="w-full px-3.5 py-3 rounded-2xl bg-white/90 border border-sky-100 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400"></select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs font-bold text-slate-600 block mb-1">Rainfall (mm)</label>
+                <input id="entryRainfallInput" type="number" step="0.1" min="0" required placeholder="0.0"
+                  class="w-full px-3.5 py-3 rounded-2xl bg-white/90 border border-sky-100 text-base font-extrabold text-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-400" />
+              </div>
+              <div>
+                <label class="text-xs font-bold text-slate-600 block mb-1">Date</label>
+                <input id="entryDateInput" type="date" required
+                  class="w-full px-3.5 py-3 rounded-2xl bg-white/90 border border-sky-100 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs font-bold text-slate-600 block mb-1">Time</label>
+                <input id="entryTimeInput" type="time" required
+                  class="w-full px-3.5 py-3 rounded-2xl bg-white/90 border border-sky-100 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400" />
+              </div>
+              <div>
+                <label class="text-xs font-bold text-slate-600 block mb-1">Weather Condition</label>
+                <select id="entryConditionInput" class="w-full px-3.5 py-3 rounded-2xl bg-white/90 border border-sky-100 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400">
+                  <option value="Moderate Rain">Moderate Rain (සාමාන්‍ය වැසි)</option>
+                  <option value="Heavy Rain">Heavy Rain (තද වැසි)</option>
+                  <option value="Torrential Rain">Torrential Rain (ධාරානිපාත වැසි)</option>
+                  <option value="Clear / Dry">Clear / Dry (පැහැදිලි)</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-600 block mb-1">Notes (Optional)</label>
+              <input id="entryNoteInput" type="text" placeholder="e.g. Morning 8:30 AM reading"
+                class="w-full px-3.5 py-3 rounded-2xl bg-white/90 border border-sky-100 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400" />
+            </div>
+            <button type="submit" class="w-full py-3.5 rounded-2xl font-bold text-sm sky-btn">
+              Save Reading
+            </button>
+          </form>
+
+          <!-- Bulk Entry Form -->
+          <form id="bulkEntryForm" onsubmit="saveBulkReadings(event)" class="hidden space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs font-bold text-slate-600 block mb-1">Date</label>
+                <input id="bulkDateInput" type="date" required class="w-full px-3 py-2.5 rounded-2xl bg-white/90 border border-sky-100 text-sm font-semibold" />
+              </div>
+              <div>
+                <label class="text-xs font-bold text-slate-600 block mb-1">Time</label>
+                <input id="bulkTimeInput" type="time" required class="w-full px-3 py-2.5 rounded-2xl bg-white/90 border border-sky-100 text-sm font-semibold" />
+              </div>
+            </div>
+            <div id="bulkStationsInputs" class="space-y-2.5 max-h-72 overflow-y-auto pr-1"></div>
+            <button type="submit" class="w-full py-3.5 rounded-2xl font-bold text-sm sky-btn">
+              Save All Stations Data
+            </button>
+          </form>
+        </div>
+
+        <!-- TAB 2: MANAGE STATIONS WITH LATITUDE / LONGITUDE -->
+        <div id="adminPanel-stations" class="hidden ios-glass rounded-[28px] p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-base font-extrabold text-slate-800">Add New Rain Gauge Station</h3>
+            <button type="button" onclick="fillCurrentGPS()" class="text-[11px] font-bold text-sky-700 bg-sky-100 hover:bg-sky-200 px-3 py-1.5 rounded-full transition">
+              📍 Use My GPS
+            </button>
+          </div>
+          <form onsubmit="addNewStation(event)" class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs font-bold text-slate-600 block mb-1">Station Name</label>
+                <input id="newStationName" type="text" required placeholder="e.g. Bibilegama"
+                  class="w-full px-3.5 py-2.5 rounded-2xl bg-white/90 border border-sky-100 text-sm font-semibold" />
+              </div>
+              <div>
+                <label class="text-xs font-bold text-slate-600 block mb-1">Division / Area</label>
+                <input id="newStationArea" type="text" required placeholder="e.g. Passara"
+                  class="w-full px-3.5 py-2.5 rounded-2xl bg-white/90 border border-sky-100 text-sm font-semibold" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs font-bold text-slate-600 block mb-1">Latitude</label>
+                <input id="newStationLat" type="number" step="any" required placeholder="6.9355"
+                  class="w-full px-3.5 py-2.5 rounded-2xl bg-white/90 border border-sky-100 text-sm font-semibold text-sky-700" />
+              </div>
+              <div>
+                <label class="text-xs font-bold text-slate-600 block mb-1">Longitude</label>
+                <input id="newStationLng" type="number" step="any" required placeholder="81.1485"
+                  class="w-full px-3.5 py-2.5 rounded-2xl bg-white/90 border border-sky-100 text-sm font-semibold text-sky-700" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs font-bold text-slate-600 block mb-1">Alert Threshold (mm)</label>
+                <input id="newStationThreshold" type="number" value="75" min="1" required
+                  class="w-full px-3.5 py-2.5 rounded-2xl bg-white/90 border border-sky-100 text-sm font-semibold" />
+              </div>
+              <div>
+                <label class="text-xs font-bold text-slate-600 block mb-1">Elevation (m)</label>
+                <input id="newStationElevation" type="number" placeholder="950"
+                  class="w-full px-3.5 py-2.5 rounded-2xl bg-white/90 border border-sky-100 text-sm font-semibold" />
+              </div>
+            </div>
+            <button type="submit" class="w-full py-3 rounded-2xl font-bold text-sm sky-btn">
+              + Add Station to Map
+            </button>
+          </form>
+
+          <div class="pt-2 border-t border-sky-100">
+            <h4 class="text-xs font-bold text-slate-500 uppercase mb-2.5">Registered Stations</h4>
+            <div id="adminStationsList" class="space-y-2"></div>
+          </div>
+        </div>
+
+        <!-- TAB 3: ADMIN CREDENTIALS & BACKUP -->
+        <div id="adminPanel-settings" class="hidden ios-glass rounded-[28px] p-5 space-y-4">
+          <div>
+            <h3 class="text-base font-extrabold text-slate-800">Update Admin Login Credentials</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Updated Email & Password sync automatically to Firebase Cloud.</p>
+          </div>
+
+          <form onsubmit="updateAdminCredentials(event)" class="space-y-3">
+            <div>
+              <label class="text-xs font-bold text-slate-600 block mb-1">New Admin Email</label>
+              <input id="updateEmailInput" type="email" required
+                class="w-full px-3.5 py-2.5 rounded-2xl bg-white/90 border border-sky-100 text-sm font-semibold" />
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-600 block mb-1">New Password</label>
+              <input id="updatePassInput" type="text" required minlength="4" placeholder="Enter new password"
+                class="w-full px-3.5 py-2.5 rounded-2xl bg-white/90 border border-sky-100 text-sm font-bold" />
+            </div>
+            <button type="submit" class="w-full py-3 rounded-2xl font-bold text-xs sky-btn">
+              Save Credentials
+            </button>
+          </form>
+
+          <div class="pt-3 border-t border-sky-100 flex justify-between items-center">
+            <button onclick="lockAdmin()" class="text-xs font-bold text-rose-600 bg-rose-50 px-4 py-2.5 rounded-xl border border-rose-100">
+              Logout / Lock
+            </button>
+            <button onclick="exportCSV()" class="text-xs font-bold text-sky-700 bg-sky-50 px-4 py-2.5 rounded-xl border border-sky-100">
+              Full CSV Backup
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Mobile Bottom Floating Dock (Hidden on PC) -->
+  <nav class="md:hidden fixed bottom-4 left-0 right-0 z-40 px-4 flex justify-center">
+    <div class="ios-glass-strong rounded-full p-1.5 flex items-center gap-2 shadow-lg">
+      <button onclick="switchMainTab('dashboard')" id="mob-nav-dashboard" class="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold sky-btn">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+        <span>Dashboard & Map</span>
+      </button>
+      <button onclick="switchMainTab('admin')" id="mob-nav-admin" class="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:text-sky-600 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+        </svg>
+        <span>Admin</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Firebase + App Logic -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // =========================================================================
+    // 1. ඔබේ FIREBASE CONFIG කේතය පහත ස්ථානයට ඇතුළත් කරන්න
+    // =========================================================================
+    const FIREBASE_CONFIG = {
+      apiKey: "AIzaSyAK2Jfe_1vOpYNYue1jo6I4Ku1F20bhEHo",
+    authDomain: "pdms-ba2ec.firebaseapp.com",
+    projectId: "pdms-ba2ec",
+    storageBucket: "pdms-ba2ec.firebasestorage.app",
+    messagingSenderId: "358605322839",
+    appId: "1:358605322839:web:5655099efe70a0f15e8112"
+    };
+
+    // Default Passara / Badulla Stations
+    const DEFAULT_STATIONS = [
+      { id: 'st_bibilegama', name: 'Bibilegama', area: 'Passara', lat: 6.9185, lng: 81.1320, threshold: 75, elevation: 940 },
+      { id: 'st_passara', name: 'Passara Town', area: 'Passara', lat: 6.9355, lng: 81.1485, threshold: 80, elevation: 880 },
+      { id: 'st_namunukula', name: 'Namunukula', area: 'Badulla', lat: 6.9322, lng: 81.1128, threshold: 90, elevation: 1420 },
+      { id: 'st_gamewela', name: 'Gamewela', area: 'Passara', lat: 6.9510, lng: 81.1610, threshold: 75, elevation: 810 }
+    ];
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const DEFAULT_READINGS = [
+      { id: 'r_1', stationId: 'st_bibilegama', rainfall: 24.5, date: todayStr, time: '08:30', condition: 'Moderate Rain', note: 'Morning 8:30 AM gauge check' },
+      { id: 'r_2', stationId: 'st_passara', rainfall: 18.0, date: todayStr, time: '08:30', condition: 'Moderate Rain', note: 'Morning 8:30 AM gauge check' },
+      { id: 'r_3', stationId: 'st_namunukula', rainfall: 42.8, date: todayStr, time: '08:30', condition: 'Heavy Rain', note: 'Upper slope observation' },
+      { id: 'r_4', stationId: 'st_gamewela', rainfall: 14.2, date: todayStr, time: '08:30', condition: 'Moderate Rain', note: '' }
+    ];
+
+    // Admin Default Credentials
+    let adminCreds = JSON.parse(localStorage.getItem('rw_admin_creds')) || {
+      email: 'admin@oshandissanayaka.lk',
+      password: '2006'
+    };
+
+    let stations = JSON.parse(localStorage.getItem('rw_stations')) || DEFAULT_STATIONS;
+    let readings = JSON.parse(localStorage.getItem('rw_readings')) || DEFAULT_READINGS;
+    let selectedStationId = 'ALL';
+    let adminUnlocked = false;
+    let rainChartInstance = null;
+    let mapInstance = null;
+    let markersLayer = null;
+    let osmLayer = null;
+    let satLayer = null;
+    let isSatelliteMode = false;
+    let db = null;
+    let isCloudConnected = false;
+
+    function formatEnglishDate(isoDateStr) {
+      if (!isoDateStr) return 'No Data';
+      const parts = isoDateStr.split('-');
+      if (parts.length !== 3) return isoDateStr;
+      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    // =========================================================================
+    // 2. PWA MANIFEST & SERVICE WORKER
+    // =========================================================================
+    function initPWA() {
+      const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="44" fill="#0ea5e9"/><path d="M56 116a28 28 0 0 1 28-28h44a32 32 0 1 1 0 64H84a28 28 0 0 1-28-36z" fill="#ffffff"/></svg>`;
+      const manifest = {
+        name: "PDMS — Passara Disaster Management System",
+        short_name: "PDMS Passara",
+        start_url: ".",
+        display: "standalone",
+        background_color: "#f0f9ff",
+        theme_color: "#0ea5e9",
+        icons: [{
+          src: "data:image/svg+xml;base64," + btoa(iconSvg),
+          sizes: "192x192",
+          type: "image/svg+xml"
+        }]
+      };
+      const manifestURL = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/json' }));
+      const link = document.createElement('link');
+      link.rel = 'manifest';
+      link.href = manifestURL;
+      document.head.appendChild(link);
+
+      if ('serviceWorker' in navigator) {
+        const swCode = `
+          self.addEventListener('install', e => self.skipWaiting());
+          self.addEventListener('activate', e => self.clients.claim());
+          self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => caches.match(e.request))));
+        `;
+        navigator.serviceWorker.register(URL.createObjectURL(new Blob([swCode], { type: 'application/javascript' }))).catch(() => {});
+      }
+    }
+
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+    });
+
+    window.triggerInstallPWA = async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+      } else {
+        alert("To install PDMS on your device:\n\n• Android (Chrome): Tap the 3-dot menu and select 'Install App' or 'Add to Home Screen'.\n• iPhone (Safari): Tap the Share icon and select 'Add to Home Screen'.\n• PC (Chrome / Edge): Click the Install icon on the right side of the address bar.");
+      }
+    };
+
+    // =========================================================================
+    // 3. DIRECT FIREBASE INITIALIZATION
+    // =========================================================================
+    async function initCloudSync() {
+      if (!FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey === "YOUR_API_KEY") {
+        updateCloudBadge(false, "Offline Mode (Local Storage)");
+        return;
+      }
+
+      try {
+        const app = initializeApp(FIREBASE_CONFIG);
+        const auth = getAuth(app);
+        await signInAnonymously(auth);
+        db = getFirestore(app);
+        isCloudConnected = true;
+        updateCloudBadge(true, "PDMS Cloud Live");
+
+        onSnapshot(query(collection(db, "rain_stations")), (snap) => {
+          if (!snap.empty) {
+            stations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            localStorage.setItem('rw_stations', JSON.stringify(stations));
+            renderAll();
+          } else {
+            stations.forEach(st => setDoc(doc(db, "rain_stations", st.id), st));
+          }
+        });
+
+        onSnapshot(query(collection(db, "rain_readings")), (snap) => {
+          if (!snap.empty) {
+            readings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            localStorage.setItem('rw_readings', JSON.stringify(readings));
+            renderAll();
+          } else {
+            readings.forEach(r => setDoc(doc(db, "rain_readings", r.id), r));
+          }
+        });
+
+        onSnapshot(doc(db, "rain_config", "admin_auth"), (docSnap) => {
+          if (docSnap.exists()) {
+            adminCreds = docSnap.data();
+            localStorage.setItem('rw_admin_creds', JSON.stringify(adminCreds));
+          } else {
+            setDoc(doc(db, "rain_config", "admin_auth"), adminCreds);
+          }
+        });
+      } catch (err) {
+        console.error("Firebase Connection Error:", err);
+        updateCloudBadge(false, "Local Mode (Check Firebase Rules)");
+      }
+    }
+
+    function updateCloudBadge(online, text) {
+      document.getElementById('cloudStatusText').textContent = text;
+      document.getElementById('cloudDot').className = online
+        ? "w-2.5 h-2.5 rounded-full bg-emerald-500"
+        : "w-2.5 h-2.5 rounded-full bg-sky-400 animate-pulse";
+    }
+
+    async function persistStation(station) {
+      localStorage.setItem('rw_stations', JSON.stringify(stations));
+      if (isCloudConnected && db) await setDoc(doc(db, "rain_stations", station.id), station);
+    }
+
+    async function removeStationFromStorage(stationId) {
+      localStorage.setItem('rw_stations', JSON.stringify(stations));
+      if (isCloudConnected && db) await deleteDoc(doc(db, "rain_stations", stationId));
+    }
+
+    async function persistReading(reading) {
+      localStorage.setItem('rw_readings', JSON.stringify(readings));
+      if (isCloudConnected && db) await setDoc(doc(db, "rain_readings", reading.id), reading);
+    }
+
+    async function removeReadingFromStorage(readingId) {
+      localStorage.setItem('rw_readings', JSON.stringify(readings));
+      if (isCloudConnected && db) await deleteDoc(doc(db, "rain_readings", readingId));
+    }
+
+    // =========================================================================
+    // 4. 100% FREE MAP (OPENSTREETMAP + FREE ESRI SATELLITE — ZERO API KEYS)
+    // =========================================================================
+    function initMap() {
+      mapInstance = L.map('stationMap', { zoomControl: true }).setView([6.9355, 81.1485], 12);
+
+      // 100% Free Standard OpenStreetMap Layer (Never requires API Key or Watermark)
+      osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
+      });
+
+      // 100% Free Esri World Imagery Satellite Layer (No API Key Required)
+      satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '&copy; Esri & OpenStreetMap',
+        maxZoom: 18
+      });
+
+      osmLayer.addTo(mapInstance);
+      markersLayer = L.layerGroup().addTo(mapInstance);
+
+      // Fix tile sizing after render
+      setTimeout(() => {
+        if (mapInstance) mapInstance.invalidateSize();
+      }, 300);
+    }
+
+    window.toggleMapStyle = () => {
+      if (!mapInstance) return;
+      const btn = document.getElementById('mapStyleBtn');
+      if (!isSatelliteMode) {
+        mapInstance.removeLayer(osmLayer);
+        satLayer.addTo(mapInstance);
+        isSatelliteMode = true;
+        btn.textContent = "🗺️ Street Map";
+      } else {
+        mapInstance.removeLayer(satLayer);
+        osmLayer.addTo(mapInstance);
+        isSatelliteMode = false;
+        btn.textContent = "🛰️ Satellite";
+      }
+    };
+
+    function updateMapMarkers(sortedReadings) {
+      if (!mapInstance || !markersLayer) return;
+      markersLayer.clearLayers();
+      const bounds = [];
+
+      stations.forEach(st => {
+        if (st.lat === undefined || st.lng === undefined || isNaN(st.lat) || isNaN(st.lng)) return;
+        const latestRec = sortedReadings.find(r => r.stationId === st.id);
+        const val = latestRec ? Number(latestRec.rainfall) : 0;
+        const isAlert = val >= Number(st.threshold);
+        const statusColor = isAlert ? '#e11d48' : '#0284c7';
+        const statusLabel = isAlert ? 'HIGH RISK ALERT' : 'NORMAL LEVEL';
+        const statusBg = isAlert ? '#ffe4e6' : '#e0f2fe';
+
+        const icon = L.divIcon({
+          className: '',
+          html: `<div class="custom-rain-pin" style="background:${statusColor}; width:46px; height:46px;">${val.toFixed(0)}mm</div>`,
+          iconSize: [46, 46],
+          iconAnchor: [23, 23]
+        });
+
+        const marker = L.marker([st.lat, st.lng], { icon });
+        marker.bindPopup(`
+          <div style="min-width:190px; padding:2px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+              <strong style="font-size:14px; color:#0f172a;">${st.name}</strong>
+              <span style="font-size:9px; font-weight:800; padding:2px 6px; border-radius:99px; background:${statusBg}; color:${statusColor};">${statusLabel}</span>
+            </div>
+            <div style="font-size:11px; color:#64748b; margin-top:2px;">
+              Division: <b>${st.area}</b> ${st.elevation ? `• Elev: <b>${st.elevation}m</b>` : ''}
+            </div>
+            <hr style="margin:7px 0; border-color:#e0f2fe;"/>
+            <div style="display:flex; justify-content:space-between; align-items:baseline;">
+              <span style="font-size:18px; font-weight:800; color:${statusColor};">${val.toFixed(1)} mm</span>
+              <span style="font-size:10px; color:#64748b;">Limit: ${st.threshold}mm</span>
+            </div>
+            <div style="font-size:11px; color:#334155; margin-top:4px;">
+              ${latestRec ? `📅 ${formatEnglishDate(latestRec.date)} at ${latestRec.time}<br/>🌦️ ${latestRec.condition || 'Rain'}` : 'No rainfall readings recorded yet.'}
+            </div>
+            <div style="font-size:10px; color:#94a3b8; margin-top:4px;">
+              GPS: ${Number(st.lat).toFixed(4)}, ${Number(st.lng).toFixed(4)}
+            </div>
+            <button onclick="selectStation('${st.id}')" style="margin-top:8px; width:100%; background:#0ea5e9; color:#fff; border:none; border-radius:10px; padding:6px 10px; font-size:11px; font-weight:700; cursor:pointer;">
+              View Station History
+            </button>
+          </div>
+        `);
+
+        markersLayer.addLayer(marker);
+        bounds.push([st.lat, st.lng]);
+      });
+
+      if (selectedStationId !== 'ALL') {
+        const activeSt = stations.find(s => s.id === selectedStationId);
+        if (activeSt && !isNaN(activeSt.lat) && !isNaN(activeSt.lng)) {
+          mapInstance.flyTo([activeSt.lat, activeSt.lng], 14, { duration: 0.8 });
+        }
+      } else if (bounds.length > 0) {
+        mapInstance.fitBounds(bounds, { padding: [35, 35], maxZoom: 13 });
+      }
+    }
+
+    window.resetMapView = () => {
+      selectedStationId = 'ALL';
+      renderAll(true);
+    };
+
+    // =========================================================================
+    // 5. NAVIGATION & ADMIN AUTHENTICATION
+    // =========================================================================
+    window.switchMainTab = (tab) => {
+      const dash = document.getElementById('view-dashboard');
+      const adm = document.getElementById('view-admin');
+
+      const activeClass = "px-5 py-2 rounded-full text-xs font-bold sky-btn";
+      const inactiveClass = "px-5 py-2 rounded-full text-xs font-bold text-slate-600 hover:text-sky-600 transition";
+      const mobActive = "flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold sky-btn";
+      const mobInactive = "flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold text-slate-600 hover:text-sky-600 transition";
+
+      if (tab === 'dashboard') {
+        dash.classList.remove('hidden');
+        adm.classList.add('hidden');
+        document.getElementById('pc-nav-dashboard').className = activeClass;
+        document.getElementById('pc-nav-admin').className = inactiveClass;
+        document.getElementById('mob-nav-dashboard').className = mobActive;
+        document.getElementById('mob-nav-admin').className = mobInactive;
+        setTimeout(() => { if (mapInstance) mapInstance.invalidateSize(); }, 150);
+        renderAll(true);
+      } else {
+        dash.classList.add('hidden');
+        adm.classList.remove('hidden');
+        document.getElementById('pc-nav-admin').className = activeClass;
+        document.getElementById('pc-nav-dashboard').className = inactiveClass;
+        document.getElementById('mob-nav-admin').className = mobActive;
+        document.getElementById('mob-nav-dashboard').className = mobInactive;
+      }
+    };
+
+    window.selectStation = (id) => {
+      selectedStationId = id;
+      renderAll(true);
+    };
+
+    window.unlockAdmin = (e) => {
+      e.preventDefault();
+      const email = document.getElementById('adminEmailInput').value.trim().toLowerCase();
+      const pass = document.getElementById('adminPassInput').value.trim();
+
+      if (email === adminCreds.email.toLowerCase() && pass === adminCreds.password) {
+        adminUnlocked = true;
+        document.getElementById('adminLockCard').classList.add('hidden');
+        document.getElementById('adminWorkspace').classList.remove('hidden');
+        document.getElementById('adminPassInput').value = '';
+        populateAdminForms();
+      } else {
+        alert("Invalid Email or Password! Please try again.");
+      }
+    };
+
+    window.lockAdmin = () => {
+      adminUnlocked = false;
+      document.getElementById('adminLockCard').classList.remove('hidden');
+      document.getElementById('adminWorkspace').classList.add('hidden');
+    };
+
+    window.updateAdminCredentials = async (e) => {
+      e.preventDefault();
+      const newEmail = document.getElementById('updateEmailInput').value.trim();
+      const newPass = document.getElementById('updatePassInput').value.trim();
+      if (!newEmail || newPass.length < 4) {
+        alert("Please enter a valid Email and a Password with at least 4 characters.");
+        return;
+      }
+      adminCreds = { email: newEmail, password: newPass };
+      localStorage.setItem('rw_admin_creds', JSON.stringify(adminCreds));
+      if (isCloudConnected && db) {
+        await setDoc(doc(db, "rain_config", "admin_auth"), adminCreds);
+      }
+      alert("Admin Email and Password updated successfully!");
+    };
+
+    window.switchAdminTab = (sub) => {
+      ['entry', 'stations', 'settings'].forEach(t => {
+        document.getElementById(`adminPanel-${t}`).classList.toggle('hidden', t !== sub);
+        const btn = document.getElementById(`adminTab-${t}`);
+        btn.className = t === sub
+          ? "py-2.5 rounded-xl bg-white text-sky-600 shadow-sm transition"
+          : "py-2.5 rounded-xl text-slate-600 transition";
+      });
+      populateAdminForms();
+    };
+
+    window.setEntryMode = (mode) => {
+      document.getElementById('singleEntryForm').classList.toggle('hidden', mode !== 'single');
+      document.getElementById('bulkEntryForm').classList.toggle('hidden', mode !== 'bulk');
+      document.getElementById('modeSingleBtn').className = mode === 'single'
+        ? "px-3 py-1 rounded-lg bg-white text-sky-700 shadow-sm"
+        : "px-3 py-1 rounded-lg text-slate-600";
+      document.getElementById('modeBulkBtn').className = mode === 'bulk'
+        ? "px-3 py-1 rounded-lg bg-white text-sky-700 shadow-sm"
+        : "px-3 py-1 rounded-lg text-slate-600";
+    };
+
+    // =========================================================================
+    // 6. DATA & STATION MANAGEMENT
+    // =========================================================================
+    window.saveSingleReading = async (e) => {
+      e.preventDefault();
+      const rec = {
+        id: 'r_' + Date.now(),
+        stationId: document.getElementById('entryStationSelect').value,
+        rainfall: parseFloat(document.getElementById('entryRainfallInput').value),
+        date: document.getElementById('entryDateInput').value,
+        time: document.getElementById('entryTimeInput').value,
+        condition: document.getElementById('entryConditionInput').value,
+        note: document.getElementById('entryNoteInput').value.trim()
+      };
+      readings.unshift(rec);
+      await persistReading(rec);
+      document.getElementById('entryRainfallInput').value = '';
+      document.getElementById('entryNoteInput').value = '';
+      alert("Rainfall reading saved!");
+      switchMainTab('dashboard');
+    };
+
+    window.saveBulkReadings = async (e) => {
+      e.preventDefault();
+      const date = document.getElementById('bulkDateInput').value;
+      const time = document.getElementById('bulkTimeInput').value;
+      let count = 0;
+
+      for (const st of stations) {
+        const inp = document.getElementById(`bulk_val_${st.id}`);
+        if (inp && inp.value !== '') {
+          const val = parseFloat(inp.value);
+          const rec = {
+            id: `r_${Date.now()}_${st.id}`,
+            stationId: st.id,
+            rainfall: val,
+            date,
+            time,
+            condition: val > 50 ? 'Heavy Rain' : (val > 0 ? 'Moderate Rain' : 'Clear / Dry'),
+            note: 'Bulk Entry'
+          };
+          readings.unshift(rec);
+          await persistReading(rec);
+          inp.value = '';
+          count++;
+        }
+      }
+
+      if (count > 0) {
+        alert(`Saved rainfall readings for ${count} stations!`);
+        switchMainTab('dashboard');
+      } else {
+        alert("Please enter rainfall values for at least one station.");
+      }
+    };
+
+    window.deleteReading = async (id) => {
+      if (!confirm("Delete this rainfall log?")) return;
+      readings = readings.filter(r => r.id !== id);
+      await removeReadingFromStorage(id);
+      renderAll(false);
+    };
+
+    window.fillCurrentGPS = () => {
+      if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser.");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          document.getElementById('newStationLat').value = pos.coords.latitude.toFixed(6);
+          document.getElementById('newStationLng').value = pos.coords.longitude.toFixed(6);
+        },
+        () => alert("Unable to fetch GPS location. Please allow Location permission.")
+      );
+    };
+
+    window.addNewStation = async (e) => {
+      e.preventDefault();
+      const st = {
+        id: 'st_' + Date.now(),
+        name: document.getElementById('newStationName').value.trim(),
+        area: document.getElementById('newStationArea').value.trim(),
+        lat: parseFloat(document.getElementById('newStationLat').value),
+        lng: parseFloat(document.getElementById('newStationLng').value),
+        threshold: parseFloat(document.getElementById('newStationThreshold').value) || 75,
+        elevation: parseInt(document.getElementById('newStationElevation').value) || 0
+      };
+
+      stations.push(st);
+      await persistStation(st);
+      e.target.reset();
+      populateAdminForms();
+      renderAll(true);
+      alert(`Station "${st.name}" added to PDMS Map!`);
+    };
+
+    window.deleteStation = async (id) => {
+      if (stations.length <= 1) {
+        alert("At least one station must remain active.");
+        return;
+      }
+      if (!confirm("Remove this station from PDMS?")) return;
+      stations = stations.filter(s => s.id !== id);
+      if (selectedStationId === id) selectedStationId = 'ALL';
+      await removeStationFromStorage(id);
+      populateAdminForms();
+      renderAll(true);
+    };
+
+    function populateAdminForms() {
+      const now = new Date();
+      const dStr = now.toISOString().split('T')[0];
+      const tStr = now.toTimeString().slice(0, 5);
+
+      document.getElementById('entryDateInput').value = dStr;
+      document.getElementById('entryTimeInput').value = tStr;
+      document.getElementById('bulkDateInput').value = dStr;
+      document.getElementById('bulkTimeInput').value = tStr;
+      document.getElementById('updateEmailInput').value = adminCreds.email;
+
+      document.getElementById('entryStationSelect').innerHTML = stations
+        .map(s => `<option value="${s.id}">${s.name} (${s.area})</option>`).join('');
+
+      document.getElementById('bulkStationsInputs').innerHTML = stations.map(s => `
+        <div class="flex items-center justify-between bg-white/85 p-3 rounded-2xl border border-sky-100">
+          <div>
+            <p class="text-xs font-bold text-slate-800">${s.name}</p>
+            <p class="text-[10px] text-slate-500">${s.area}</p>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <input id="bulk_val_${s.id}" type="number" step="0.1" min="0" placeholder="0.0"
+              class="w-24 text-right px-3 py-2 rounded-xl bg-sky-50/70 border border-sky-200 text-sm font-extrabold text-sky-700" />
+            <span class="text-xs font-bold text-slate-400">mm</span>
+          </div>
+        </div>
+      `).join('');
+
+      document.getElementById('adminStationsList').innerHTML = stations.map(s => `
+        <div class="flex items-center justify-between bg-white/85 p-3 rounded-2xl border border-sky-100">
+          <div>
+            <p class="text-xs font-bold text-slate-800">${s.name} <span class="text-sky-600">(${s.area})</span></p>
+            <p class="text-[10px] text-slate-500">Lat: ${s.lat}, Lng: ${s.lng} • Alert: ${s.threshold}mm</p>
+          </div>
+          <button onclick="deleteStation('${s.id}')" class="text-xs font-bold text-rose-500 px-2.5 py-1 rounded-lg hover:bg-rose-50">
+            Remove
+          </button>
+        </div>
+      `).join('');
+    }
+
+    // =========================================================================
+    // 7. MAIN RENDER ENGINE
+    // =========================================================================
+    function renderAll(updateMapBounds = true) {
+      const sorted = [...readings].sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+      const latestDate = sorted.length > 0 ? sorted[0].date : new Date().toISOString().split('T')[0];
+
+      // 1. Station Switcher Pills
+      const pillsBox = document.getElementById('stationPillsContainer');
+      const allBtnClass = selectedStationId === 'ALL'
+        ? 'sky-btn font-bold'
+        : 'ios-glass text-slate-700 font-semibold hover:bg-white';
+      let pillsHTML = `<button onclick="selectStation('ALL')" class="shrink-0 px-4 py-2 rounded-full text-xs transition ${allBtnClass}">All Stations (${stations.length})</button>`;
+
+      stations.forEach(st => {
+        const active = selectedStationId === st.id;
+        const cls = active ? 'sky-btn font-bold' : 'ios-glass text-slate-700 font-semibold hover:bg-white';
+        pillsHTML += `<button onclick="selectStation('${st.id}')" class="shrink-0 px-4 py-2 rounded-full text-xs transition ${cls}">${st.name}</button>`;
+      });
+      pillsBox.innerHTML = pillsHTML;
+
+      // 2. Filter Readings
+      const filtered = selectedStationId === 'ALL'
+        ? sorted
+        : sorted.filter(r => r.stationId === selectedStationId);
+
+      // 3. KPIs
+      const todayReadings = filtered.filter(r => r.date === latestDate);
+      const totalToday = todayReadings.reduce((acc, r) => acc + Number(r.rainfall), 0);
+
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const sevenStr = sevenDaysAgo.toISOString().split('T')[0];
+      const total7Day = filtered.filter(r => r.date >= sevenStr).reduce((acc, r) => acc + Number(r.rainfall), 0);
+      const maxVal = filtered.length ? Math.max(...filtered.map(r => Number(r.rainfall))) : 0;
+
+      const activeStation = stations.find(s => s.id === selectedStationId);
+      document.getElementById('heroSubtitle').textContent = activeStation
+        ? `${activeStation.name} • ${activeStation.area}`
+        : `All Stations (${formatEnglishDate(latestDate)})`;
+      document.getElementById('heroTotalValue').textContent = totalToday.toFixed(1);
+      document.getElementById('kpi7Day').textContent = `${total7Day.toFixed(1)} mm`;
+      document.getElementById('kpiMax').textContent = `${maxVal.toFixed(1)} mm`;
+      document.getElementById('kpiStationCount').textContent = stations.length;
+
+      // 4. Alerts
+      const alerts = [];
+      stations.forEach(st => {
+        const stLatest = sorted.find(r => r.stationId === st.id && r.date === latestDate);
+        if (stLatest && Number(stLatest.rainfall) >= Number(st.threshold)) {
+          alerts.push(`${st.name} (${stLatest.rainfall}mm)`);
+        }
+      });
+      const alertBox = document.getElementById('alertBanner');
+      if (alerts.length > 0) {
+        alertBox.classList.remove('hidden');
+        document.getElementById('alertBannerText').textContent = `Landslide & Heavy Rain Warning: ${alerts.join(', ')}`;
+      } else {
+        alertBox.classList.add('hidden');
+      }
+
+      // 5. Station Cards Grid
+      const grid = document.getElementById('stationCardsGrid');
+      if (selectedStationId === 'ALL') {
+        grid.classList.remove('hidden');
+        grid.innerHTML = stations.map(st => {
+          const latestRec = sorted.find(r => r.stationId === st.id);
+          const val = latestRec ? Number(latestRec.rainfall).toFixed(1) : '0.0';
+          const isHigh = latestRec && Number(latestRec.rainfall) >= Number(st.threshold);
+          return `
+            <div onclick="selectStation('${st.id}')" class="ios-glass rounded-3xl p-4 cursor-pointer hover:scale-[1.01] transition">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-extrabold text-slate-800">${st.name}</span>
+                <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full ${isHigh ? 'bg-rose-100 text-rose-700' : 'bg-sky-100 text-sky-700'}">
+                  ${st.area}
+                </span>
+              </div>
+              <div class="mt-2.5 flex items-baseline justify-between">
+                <div>
+                  <span class="text-2xl font-extrabold ${isHigh ? 'text-rose-600' : 'text-sky-600'}">${val}</span>
+                  <span class="text-xs font-bold text-slate-500">mm</span>
+                </div>
+                <span class="text-[10px] font-medium text-slate-400">${latestRec ? formatEnglishDate(latestRec.date) : 'No Data'}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        grid.classList.add('hidden');
+      }
+
+      // 6. Map, Chart & List
+      if (updateMapBounds) updateMapMarkers(sorted);
+      renderChart(sorted, latestDate);
+
+      const listBox = document.getElementById('readingsList');
+      if (filtered.length === 0) {
+        listBox.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">No telemetry records found.</p>`;
+      } else {
+        listBox.innerHTML = filtered.slice(0, 20).map(r => {
+          const st = stations.find(s => s.id === r.stationId);
+          const stName = st ? st.name : 'Unknown';
+          return `
+            <div class="flex items-center justify-between bg-white/85 border border-white rounded-2xl p-3">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-extrabold text-slate-800">${stName}</span>
+                  <span class="text-[10px] font-semibold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full">${r.condition || 'Rain'}</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-0.5">${formatEnglishDate(r.date)} • ${r.time} ${r.note ? `(${r.note})` : ''}</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="text-base font-extrabold text-sky-600">${Number(r.rainfall).toFixed(1)} <small class="text-[10px] text-slate-500">mm</small></span>
+                ${adminUnlocked ? `<button onclick="deleteReading('${r.id}')" class="text-rose-400 hover:text-rose-600 text-xs font-bold">✕</button>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    function renderChart(sortedReadings, latestDate) {
+      const ctx = document.getElementById('rainChart').getContext('2d');
+      if (rainChartInstance) rainChartInstance.destroy();
+
+      let labels = [];
+      let dataPoints = [];
+
+      if (selectedStationId === 'ALL') {
+        document.getElementById('chartSubLabel').textContent = `Latest Rainfall by Station (${formatEnglishDate(latestDate)})`;
+        labels = stations.map(s => s.name);
+        dataPoints = stations.map(s => {
+          const rec = sortedReadings.find(r => r.stationId === s.id && r.date === latestDate);
+          return rec ? Number(rec.rainfall) : 0;
+        });
+      } else {
+        const st = stations.find(s => s.id === selectedStationId);
+        document.getElementById('chartSubLabel').textContent = `${st ? st.name : ''} — Recent History`;
+        const stRecs = sortedReadings.filter(r => r.stationId === selectedStationId).slice(0, 10).reverse();
+        labels = stRecs.map(r => formatEnglishDate(r.date).replace(/, \d{4}/, ''));
+        dataPoints = stRecs.map(r => Number(r.rainfall));
+      }
+
+      const gradient = ctx.createLinearGradient(0, 0, 0, 220);
+      gradient.addColorStop(0, 'rgba(14, 165, 233, 0.85)');
+      gradient.addColorStop(1, 'rgba(186, 230, 253, 0.35)');
+
+      rainChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Rainfall (mm)',
+            data: dataPoints,
+            backgroundColor: gradient,
+            borderColor: '#0284c7',
+            borderWidth: 1.5,
+            borderRadius: 12,
+            maxBarThickness: 38
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(14, 165, 233, 0.08)' },
+              ticks: { font: { size: 11, weight: '600' }, color: '#64748b' }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { font: { size: 11, weight: '600' }, color: '#334155' }
+            }
+          }
+        }
+      });
+    }
+
+    window.exportCSV = () => {
+      const rows = [['Date', 'Time', 'Station', 'Area', 'Lat', 'Lng', 'Rainfall_mm', 'Condition', 'Note']];
+      readings.forEach(r => {
+        const st = stations.find(s => s.id === r.stationId);
+        rows.push([
+          r.date,
+          r.time,
+          st ? st.name : r.stationId,
+          st ? st.area : '',
+          st ? st.lat : '',
+          st ? st.lng : '',
+          r.rainfall,
+          r.condition || '',
+          `"${(r.note || '').replace(/"/g, '""')}"`
+        ]);
+      });
+      const csvContent = "\uFEFF" + rows.map(e => e.join(",")).join("\n");
+      const url = URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `PDMS_Passara_Data_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+    };
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clockBadge').textContent = now.toTimeString().slice(0, 5);
+      document.getElementById('todayDateLabel').textContent = now.toLocaleDateString('en-US', {
+        weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+      });
+    }
+
+    // Boot PDMS App
+    initPWA();
+    initMap();
+    updateClock();
+    setInterval(updateClock, 15000);
+    renderAll(true);
+    initCloudSync();
+  </script>
+</body>
+</html>
